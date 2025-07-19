@@ -1,0 +1,122 @@
+package handlers
+
+import (
+	"net/http"
+	"sjek/internal/database"
+	"sjek/internal/models"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
+)
+
+type UserResponse struct {
+	ID       uuid.UUID `json:"id"`
+	Username string    `json:"username"`
+	Roles    []string  `json:"roles"`
+}
+
+func GetUsers(c *gin.Context) {
+	var users []models.User
+	result := database.DB.Preload("Roles").Find(&users)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+		return
+	}
+
+	var response []UserResponse
+	for _, user := range users {
+		var roles []string
+		for _, role := range user.Roles {
+			roles = append(roles, role.Name)
+		}
+		response = append(response, UserResponse{
+			ID:       user.ID,
+			Username: user.Username,
+			Roles:    roles,
+		})
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+func GetUser(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	var user models.User
+	result := database.DB.Preload("Roles").First(&user, "id = ?", id)
+	if result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	var roles []string
+	for _, role := range user.Roles {
+		roles = append(roles, role.Name)
+	}
+
+	c.JSON(http.StatusOK, UserResponse{
+		ID:       user.ID,
+		Username: user.Username,
+		Roles:    roles,
+	})
+}
+
+func DeleteUser(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	result := database.DB.Delete(&models.User{}, "id = ?", id)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
+}
+
+func UpdateUser(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var user models.User
+	result := database.DB.First(&user, "id = ?", id)
+	if result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	user.Username = req.Username
+	if req.Password != "" {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+			return
+		}
+		user.Password = string(hashedPassword)
+	}
+
+	result = database.DB.Save(&user)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
+}
