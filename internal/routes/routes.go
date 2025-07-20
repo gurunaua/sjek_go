@@ -25,6 +25,7 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 	// Protected routes
 	protected := router.Group("/")
 	protected.Use(middleware.AuthMiddleware())
+	protected.Use(middleware.APIAccessMiddleware(db)) // Tambahkan middleware ini
 
 	setupUserRoutes(protected)
 	setupRoleRoutes(protected)

@@ -7,8 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"sjek/internal/models" // perbaiki import path
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 )
 
 var JWTSecret = []byte(os.Getenv("JWT_SECRET"))
@@ -105,6 +108,47 @@ func RoleMiddleware(requiredRoles ...string) gin.HandlerFunc {
 
 		if !hasRequiredRole {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func APIAccessMiddleware(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Dapatkan roles dari context yang sudah diset oleh AuthMiddleware
+		userRoles, exists := c.Get("roles")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User roles not found"})
+			c.Abort()
+			return
+		}
+		roles := userRoles.([]string)
+
+		// Dapatkan current path dan method
+		path := c.FullPath()
+		method := c.Request.Method
+
+		// Cari API di database
+		var api models.API
+		if err := db.Where("path = ? AND method = ?", path, method).First(&api).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "API not found"})
+			c.Abort()
+			return
+		}
+
+		// Cek apakah user memiliki role yang bisa mengakses API ini
+		var count int64
+		if err := db.Table("map_role_api").Where("api_id = ? AND role_id IN (SELECT id FROM roles WHERE name IN ?)", api.ID, roles).Count(&count).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check API access"})
+			c.Abort()
+			return
+		}
+
+		if count == 0 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have permission to access this API"})
 			c.Abort()
 			return
 		}
