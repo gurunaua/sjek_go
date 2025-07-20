@@ -16,6 +16,14 @@ type UserResponse struct {
 	Roles    []string  `json:"roles"`
 }
 
+// @Summary      Get all users
+// @Description  Get list of all users with their roles
+// @Tags         users
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   UserResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /users [get]
 func GetUsers(c *gin.Context) {
 	var users []models.User
 	result := database.DB.Preload("Roles").Find(&users)
@@ -40,6 +48,16 @@ func GetUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// @Summary      Get user by ID
+// @Description  Get user details by user ID
+// @Tags         users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "User ID"
+// @Success      200  {object}  UserResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Router       /users/{id} [get]
 func GetUser(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -66,6 +84,15 @@ func GetUser(c *gin.Context) {
 	})
 }
 
+// @Summary      Delete user
+// @Description  Delete user by ID
+// @Tags         users
+// @Security     BearerAuth
+// @Param        id   path      string  true  "User ID"
+// @Success      200  {object}  SuccessResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /users/{id} [delete]
 func DeleteUser(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -82,6 +109,19 @@ func DeleteUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
 
+// @Summary      Update user
+// @Description  Update user details by ID
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id      path    string         true  "User ID"
+// @Param        request body    RegisterRequest true  "User details"
+// @Success      200  {object}  SuccessResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /users/{id} [put]
 func UpdateUser(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

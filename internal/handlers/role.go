@@ -18,6 +18,17 @@ type RoleResponse struct {
 	Name string    `json:"name"`
 }
 
+// @Summary      Create new role
+// @Description  Create a new role
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body RoleRequest true "Role details"
+// @Success      201  {object}  RoleResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /roles [post]
 func CreateRole(c *gin.Context) {
 	var req RoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -39,6 +50,14 @@ func CreateRole(c *gin.Context) {
 	c.JSON(http.StatusCreated, RoleResponse{ID: role.ID, Name: role.Name})
 }
 
+// @Summary      Get all roles
+// @Description  Get list of all roles
+// @Tags         roles
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   RoleResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /roles [get]
 func GetRoles(c *gin.Context) {
 	var roles []models.Role
 	result := database.DB.Find(&roles)
@@ -55,6 +74,16 @@ func GetRoles(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// @Summary      Get role by ID
+// @Description  Get role details by role ID
+// @Tags         roles
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Role ID"
+// @Success      200  {object}  RoleResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Router       /roles/{id} [get]
 func GetRole(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -72,6 +101,19 @@ func GetRole(c *gin.Context) {
 	c.JSON(http.StatusOK, RoleResponse{ID: role.ID, Name: role.Name})
 }
 
+// @Summary      Update role
+// @Description  Update role details by ID
+// @Tags         roles
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id      path    string      true  "Role ID"
+// @Param        request body    RoleRequest true  "Role details"
+// @Success      200  {object}  RoleResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /roles/{id} [put]
 func UpdateRole(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -102,6 +144,15 @@ func UpdateRole(c *gin.Context) {
 	c.JSON(http.StatusOK, RoleResponse{ID: role.ID, Name: role.Name})
 }
 
+// @Summary      Delete role
+// @Description  Delete role by ID
+// @Tags         roles
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Role ID"
+// @Success      200  {object}  SuccessResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /roles/{id} [delete]
 func DeleteRole(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -118,6 +169,17 @@ func DeleteRole(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Role deleted successfully"})
 }
 
+// @Summary      Assign role to user
+// @Description  Assign a role to a user
+// @Tags         role-assignments
+// @Security     BearerAuth
+// @Param        role_id path    string true "Role ID"
+// @Param        user_id path    string true "User ID"
+// @Success      200  {object}  SuccessResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /role-assignments/roles/{role_id}/users/{user_id} [post]
 func AssignRoleToUser(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("user_id"))
 	if err != nil {
@@ -153,6 +215,17 @@ func AssignRoleToUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Role assigned to user successfully"})
 }
 
+// @Summary      Remove role from user
+// @Description  Remove a role from a user
+// @Tags         role-assignments
+// @Security     BearerAuth
+// @Param        role_id path    string true "Role ID"
+// @Param        user_id path    string true "User ID"
+// @Success      200  {object}  SuccessResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /role-assignments/roles/{role_id}/users/{user_id} [delete]
 func RemoveRoleFromUser(c *gin.Context) {
 	userID, err := uuid.Parse(c.Param("user_id"))
 	if err != nil {

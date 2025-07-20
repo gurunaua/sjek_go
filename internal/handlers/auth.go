@@ -27,6 +27,17 @@ type AuthResponse struct {
 	Token string `json:"token"`
 }
 
+// @Summary      Register new user
+// @Description  Register a new user with username and password
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body RegisterRequest true "Register credentials"
+// @Success      201  {object}  AuthResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      409  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /register [post]
 func Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -87,6 +98,17 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, AuthResponse{Token: token})
 }
 
+// @Summary      Login user
+// @Description  Login with username and password to get JWT token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body LoginRequest true "Login credentials"
+// @Success      200  {object}  AuthResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      401  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /login [post]
 func Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -127,4 +149,15 @@ func Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, AuthResponse{Token: token})
+}
+
+
+// ErrorResponse represents error response
+type ErrorResponse struct {
+	Error string `json:"error" example:"error message"`
+}
+
+// SuccessResponse represents success response
+type SuccessResponse struct {
+	Message string `json:"message" example:"operation successful"`
 }
