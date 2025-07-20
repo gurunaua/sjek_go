@@ -16,22 +16,63 @@ type UserResponse struct {
 	Roles    []string  `json:"roles"`
 }
 
+// GetUsers returns all users with pagination
 // @Summary      Get all users
-// @Description  Get list of all users with their roles
+// @Description  Get list of all users with their roles and pagination
 // @Tags         users
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {array}   UserResponse
-// @Failure      500  {object}  ErrorResponse
+// @Param        page   query     int  false  "Page number"
+// @Param        limit  query     int  false  "Items per page"
+// @Success      200    {object}  models.PaginatedResponse
+// @Failure      400    {object}  ErrorResponse
+// @Failure      500    {object}  ErrorResponse
 // @Router       /users [get]
 func GetUsers(c *gin.Context) {
+	var pagination models.Pagination
+	// Set default values
+	pagination.Page = 1
+	pagination.Limit = 10
+
+	// Bind query parameters
+	if err := c.ShouldBindQuery(&pagination); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validasi input
+	if pagination.Page < 1 {
+		pagination.Page = 1
+	}
+	if pagination.Limit < 1 {
+		pagination.Limit = 10
+	}
+	if pagination.Limit > 100 {
+		pagination.Limit = 100 // Batasi maksimal 100 item per page
+	}
+
+	// Hitung offset
+	pagination.Offset = (pagination.Page - 1) * pagination.Limit
+
+	// Query dengan preload dan count total
 	var users []models.User
-	result := database.DB.Preload("Roles").Find(&users)
+	var total int64
+
+	// Hitung total records
+	if err := database.DB.Model(&models.User{}).Count(&total).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count users"})
+		return
+	}
+	pagination.Total = total
+
+	// Ambil data dengan pagination
+	result := database.DB.Preload("Roles").Offset(pagination.Offset).Limit(pagination.Limit).Find(&users)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 		return
 	}
 
+	// Transform ke response format
 	var response []UserResponse
 	for _, user := range users {
 		var roles []string
@@ -45,7 +86,11 @@ func GetUsers(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, response)
+	// Return response
+	c.JSON(http.StatusOK, models.PaginatedResponse{
+		Data:       response,
+		Pagination: pagination,
+	})
 }
 
 // @Summary      Get user by ID

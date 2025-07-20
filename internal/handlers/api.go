@@ -28,17 +28,68 @@ func CreateAPI(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// GetAPIs returns all API endpoints
+// GetAPIs returns all API endpoints with pagination
+// @Summary      Get all APIs
+// @Description  Get list of all APIs with pagination
+// @Tags         apis
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page   query     int  false  "Page number"
+// @Param        limit  query     int  false  "Items per page"
+// @Success      200    {object}  models.PaginatedResponse
+// @Failure      400    {object}  ErrorResponse
+// @Failure      500    {object}  ErrorResponse
+// @Router       /apis [get]
 func GetAPIs(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var apis []models.API
-		result := db.Preload("Roles").Find(&apis)
-		if result.Error != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		var pagination models.Pagination
+		// Set default values
+		pagination.Page = 1
+		pagination.Limit = 10
+
+		// Bind query parameters
+		if err := c.ShouldBindQuery(&pagination); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusOK, apis)
+		// Validasi input
+		if pagination.Page < 1 {
+			pagination.Page = 1
+		}
+		if pagination.Limit < 1 {
+			pagination.Limit = 10
+		}
+		if pagination.Limit > 100 {
+			pagination.Limit = 100 // Batasi maksimal 100 item per page
+		}
+
+		// Hitung offset
+		pagination.Offset = (pagination.Page - 1) * pagination.Limit
+
+		// Query dengan preload dan count total
+		var apis []models.API
+		var total int64
+
+		// Hitung total records
+		if err := db.Model(&models.API{}).Count(&total).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count APIs"})
+			return
+		}
+		pagination.Total = total
+
+		// Ambil data dengan pagination
+		result := db.Preload("Roles").Offset(pagination.Offset).Limit(pagination.Limit).Find(&apis)
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch APIs"})
+			return
+		}
+
+		// Return response
+		c.JSON(http.StatusOK, models.PaginatedResponse{
+			Data:       apis,
+			Pagination: pagination,
+		})
 	}
 }
 
