@@ -12,4 +12,5 @@ type Role struct {
     UpdatedAt time.Time `json:"updated_at"`
     Users     []User    `json:"users,omitempty" gorm:"many2many:map_user_role;"`
     APIs      []API     `json:"apis,omitempty" gorm:"many2many:map_role_api;"`
+    Menus     []Menu    `json:"menus,omitempty" gorm:"many2many:map_role_menu;"`
 }

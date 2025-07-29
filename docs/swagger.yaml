@@ -43,6 +43,53 @@ definitions:
     - login
     - password
     type: object
+  handlers.MenuRequest:
+    properties:
+      description:
+        type: string
+      icon:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      parent_id:
+        type: string
+      path:
+        type: string
+      sequence:
+        type: integer
+    required:
+    - name
+    - path
+    type: object
+  handlers.MenuResponse:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/handlers.MenuResponse'
+        type: array
+      description:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      parent_id:
+        type: string
+      path:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      sequence:
+        type: integer
+    type: object
   handlers.RegisterUserRequest:
     properties:
       email:
@@ -340,6 +387,258 @@ paths:
       summary: Logout user
       tags:
       - auth
+  /menu-assignments/menus/{menu_id}/roles/{role_id}:
+    delete:
+      description: Remove a role from a menu
+      parameters:
+      - description: Menu ID
+        in: path
+        name: menu_id
+        required: true
+        type: string
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove role from menu
+      tags:
+      - menu-assignments
+    post:
+      description: Assign a role to a menu for access control
+      parameters:
+      - description: Menu ID
+        in: path
+        name: menu_id
+        required: true
+        type: string
+      - description: Role ID
+        in: path
+        name: role_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Assign role to menu
+      tags:
+      - menu-assignments
+  /menus:
+    get:
+      description: Get list of all menus with hierarchical structure
+      parameters:
+      - description: Return flat list instead of hierarchical
+        in: query
+        name: flat
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.MenuResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all menus
+      tags:
+      - menus
+    post:
+      consumes:
+      - application/json
+      description: Create a new menu item
+      parameters:
+      - description: Menu details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.MenuRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.MenuResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create new menu
+      tags:
+      - menus
+  /menus/{id}:
+    delete:
+      description: Delete menu by ID
+      parameters:
+      - description: Menu ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete menu
+      tags:
+      - menus
+    get:
+      description: Get menu details by menu ID
+      parameters:
+      - description: Menu ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.MenuResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get menu by ID
+      tags:
+      - menus
+    put:
+      consumes:
+      - application/json
+      description: Update menu details by ID
+      parameters:
+      - description: Menu ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Menu details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.MenuRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.MenuResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update menu
+      tags:
+      - menus
+  /menus/user:
+    get:
+      description: Get menus accessible by current user based on their roles
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.MenuResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user menus
+      tags:
+      - menus
   /register/admin:
     post:
       consumes:

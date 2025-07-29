@@ -33,7 +33,8 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 	setupAPIRoutes(protected, db)
 	setupAPIRoleMappingRoutes(protected, db)
 	setupLoginLogRoutes(protected)
-	setupTokenRoutes(protected) // Tambahkan ini
+	setupTokenRoutes(protected)
+	setupMenuRoutes(protected) // Tambahkan ini
 
 	// Insert API endpoints ke database
 	if err := insertAPIEndpoints(db, router); err != nil {
@@ -149,5 +150,26 @@ func setupTokenRoutes(rg *gin.RouterGroup) {
 		tokens.GET("/", handlers.GetUserTokens)
 		tokens.DELETE("/:id", handlers.RevokeToken)
 		tokens.POST("/revoke-all", handlers.RevokeAllTokens)
+	}
+}
+
+// setupMenuRoutes configures menu management routes
+func setupMenuRoutes(rg *gin.RouterGroup) {
+	// Menu CRUD routes
+	menus := rg.Group("/menus")
+	{
+		menus.POST("/", handlers.CreateMenu)
+		menus.GET("/", handlers.GetMenus)
+		menus.GET("/user", handlers.GetUserMenus) // Get menus for current user
+		menus.GET("/:id", handlers.GetMenu)
+		menus.PUT("/:id", handlers.UpdateMenu)
+		menus.DELETE("/:id", handlers.DeleteMenu)
+	}
+
+	// Menu-role assignment routes
+	menuAssignments := rg.Group("/menu-assignments")
+	{
+		menuAssignments.POST("/menus/:menu_id/roles/:role_id", handlers.AssignRoleToMenu)
+		menuAssignments.DELETE("/menus/:menu_id/roles/:role_id", handlers.RemoveRoleFromMenu)
 	}
 }

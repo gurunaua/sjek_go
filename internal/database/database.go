@@ -37,10 +37,15 @@ func InitDB() (*gorm.DB, error) {
 	log.Println("Database connection established")
 
 	// Auto Migrate the schemas
-	err = DB.AutoMigrate(&models.User{}, &models.Role{}, &models.API{}, &models.LoginLog{}, &models.UserToken{})
+	err = DB.AutoMigrate(&models.User{}, &models.Role{}, &models.API{}, &models.LoginLog{}, &models.UserToken{}, &models.Menu{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %v", err)
 	}
+
+	// Seed default menus
+	// if err := SeedDefaultMenus(db); err != nil {
+	// 	log.Printf("Warning: failed to seed default menus: %v", err)
+	// }
 
 	return db, nil
 }
