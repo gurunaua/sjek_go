@@ -32,6 +32,7 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 	setupRoleUserMappingRoutes(protected)
 	setupAPIRoutes(protected, db)
 	setupAPIRoleMappingRoutes(protected, db)
+	setupLoginLogRoutes(protected) // Tambahkan ini
 
 	// Insert API endpoints ke database
 	if err := insertAPIEndpoints(db, router); err != nil {
@@ -43,7 +44,8 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 
 // setupPublicRoutes configures public routes that don't require authentication
 func setupPublicRoutes(router *gin.Engine) {
-	router.POST("/register", handlers.Register)
+	router.POST("/register/admin", handlers.RegisterAdmin)
+	router.POST("/register/driver", handlers.RegisterDriver)
 	router.POST("/login", handlers.Login)
 }
 
@@ -124,4 +126,13 @@ func insertAPIEndpoints(db *gorm.DB, router *gin.Engine) error {
 	}
 
 	return nil
+}
+
+// setupLoginLogRoutes configures login log routes
+func setupLoginLogRoutes(rg *gin.RouterGroup) {
+	loginLogs := rg.Group("/login-logs")
+	{
+		loginLogs.GET("/", handlers.GetLoginLogs)
+		loginLogs.GET("/:id", handlers.GetLoginLog)
+	}
 }

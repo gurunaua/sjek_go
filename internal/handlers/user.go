@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sjek/internal/database"
 	"sjek/internal/models"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,22 +12,37 @@ import (
 )
 
 type UserResponse struct {
-	ID       uuid.UUID `json:"id"`
-	Username string    `json:"username"`
-	Roles    []string  `json:"roles"`
+	ID            uuid.UUID         `json:"id"`
+	Username      string            `json:"username"`
+	Email         string            `json:"email"`
+	Type          models.UserType   `json:"type"`
+	Status        models.UserStatus `json:"status"`
+	ActivatedDate *time.Time        `json:"activated_date,omitempty"`
+	InactiveDate  *time.Time        `json:"inactive_date,omitempty"`
+	Roles         []string          `json:"roles"`
 }
 
-// GetUsers returns all users with pagination
-// @Summary      Get all users
-// @Description  Get list of all users with their roles and pagination
+// Struct untuk update user
+type UpdateUserRequest struct {
+	Username string `json:"username" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password,omitempty"` // Optional untuk update
+}
+
+// Update GetUsers function untuk include field baru
+// @Summary      Get all users with pagination and filters
+// @Description  Get all users with pagination, filter by type, email contains, username contains
 // @Tags         users
 // @Produce      json
 // @Security     BearerAuth
-// @Param        page   query     int  false  "Page number"
-// @Param        limit  query     int  false  "Items per page"
-// @Success      200    {object}  models.PaginatedResponse
-// @Failure      400    {object}  ErrorResponse
-// @Failure      500    {object}  ErrorResponse
+// @Param        page     query     int     false  "Page number (default: 1)"
+// @Param        limit    query     int     false  "Items per page (default: 10, max: 100)"
+// @Param        type     query     string  false  "Filter by user type (ADMIN/DRIVER)"
+// @Param        email    query     string  false  "Filter by email contains"
+// @Param        username query     string  false  "Filter by username contains"
+// @Success      200  {object}  models.PaginatedResponse{data=[]UserResponse}
+// @Failure      400  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
 // @Router       /users [get]
 func GetUsers(c *gin.Context) {
 	var pagination models.Pagination
@@ -39,6 +55,11 @@ func GetUsers(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Get filter parameters
+	typeFilter := c.Query("type")
+	emailFilter := c.Query("email")
+	usernameFilter := c.Query("username")
 
 	// Validasi input
 	if pagination.Page < 1 {
@@ -54,19 +75,31 @@ func GetUsers(c *gin.Context) {
 	// Hitung offset
 	pagination.Offset = (pagination.Page - 1) * pagination.Limit
 
-	// Query dengan preload dan count total
-	var users []models.User
-	var total int64
+	// Build query dengan filter
+	query := database.DB.Model(&models.User{})
 
-	// Hitung total records
-	if err := database.DB.Model(&models.User{}).Count(&total).Error; err != nil {
+	// Apply filters
+	if typeFilter != "" {
+		query = query.Where("type = ?", typeFilter)
+	}
+	if emailFilter != "" {
+		query = query.Where("email ILIKE ?", "%"+emailFilter+"%")
+	}
+	if usernameFilter != "" {
+		query = query.Where("username ILIKE ?", "%"+usernameFilter+"%")
+	}
+
+	// Hitung total records dengan filter
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to count users"})
 		return
 	}
 	pagination.Total = total
 
-	// Ambil data dengan pagination
-	result := database.DB.Preload("Roles").Offset(pagination.Offset).Limit(pagination.Limit).Find(&users)
+	// Ambil data dengan pagination dan filter
+	var users []models.User
+	result := query.Preload("Roles").Offset(pagination.Offset).Limit(pagination.Limit).Find(&users)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 		return
@@ -80,9 +113,14 @@ func GetUsers(c *gin.Context) {
 			roles = append(roles, role.Name)
 		}
 		response = append(response, UserResponse{
-			ID:       user.ID,
-			Username: user.Username,
-			Roles:    roles,
+			ID:            user.ID,
+			Username:      user.Username,
+			Email:         user.Email,
+			Type:          user.Type,
+			Status:        user.Status,
+			ActivatedDate: user.ActivatedDate,
+			InactiveDate:  user.InactiveDate,
+			Roles:         roles,
 		})
 	}
 
@@ -160,8 +198,8 @@ func DeleteUser(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        id      path    string         true  "User ID"
-// @Param        request body    RegisterRequest true  "User details"
+// @Param        id      path    string            true  "User ID"
+// @Param        request body    UpdateUserRequest true  "User details"
 // @Success      200  {object}  SuccessResponse
 // @Failure      400  {object}  ErrorResponse
 // @Failure      404  {object}  ErrorResponse
@@ -174,7 +212,7 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	var req RegisterRequest
+	var req UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -187,7 +225,11 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
+	// Update username dan email
 	user.Username = req.Username
+	user.Email = req.Email
+
+	// Update password hanya jika diberikan
 	if req.Password != "" {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {

@@ -11,24 +11,49 @@ definitions:
         example: error message
         type: string
     type: object
-  handlers.LoginRequest:
+  handlers.LoginLogResponse:
     properties:
-      password:
+      email:
+        type: string
+      id:
+        type: string
+      ip_address:
+        type: string
+      login_time:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+      user_agent:
+        type: string
+      user_id:
         type: string
       username:
         type: string
-    required:
-    - password
-    - username
     type: object
-  handlers.RegisterRequest:
+  handlers.LoginRequest:
     properties:
+      login:
+        description: Bisa username atau email
+        type: string
+      password:
+        type: string
+    required:
+    - login
+    - password
+    type: object
+  handlers.RegisterUserRequest:
+    properties:
+      email:
+        type: string
       password:
         minLength: 6
         type: string
       username:
         type: string
     required:
+    - email
     - password
     - username
     type: object
@@ -52,14 +77,37 @@ definitions:
         example: operation successful
         type: string
     type: object
+  handlers.UpdateUserRequest:
+    properties:
+      email:
+        type: string
+      password:
+        description: Optional untuk update
+        type: string
+      username:
+        type: string
+    required:
+    - email
+    - username
+    type: object
   handlers.UserResponse:
     properties:
+      activated_date:
+        type: string
+      email:
+        type: string
       id:
+        type: string
+      inactive_date:
         type: string
       roles:
         items:
           type: string
         type: array
+      status:
+        $ref: '#/definitions/models.UserStatus'
+      type:
+        $ref: '#/definitions/models.UserType'
       username:
         type: string
     type: object
@@ -80,6 +128,22 @@ definitions:
       total:
         type: integer
     type: object
+  models.UserStatus:
+    enum:
+    - ACTIVE
+    - INACTIVE
+    type: string
+    x-enum-varnames:
+    - UserStatusActive
+    - UserStatusInactive
+  models.UserType:
+    enum:
+    - ADMIN
+    - DRIVER
+    type: string
+    x-enum-varnames:
+    - UserTypeAdmin
+    - UserTypeDriver
 host: localhost:8080
 info:
   contact: {}
@@ -123,9 +187,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Login with username and password to get JWT token
+      description: Login with username/email and password to get JWT token
       parameters:
-      - description: Login credentials
+      - description: Login credentials (username or email)
         in: body
         name: request
         required: true
@@ -153,18 +217,103 @@ paths:
       summary: Login user
       tags:
       - auth
-  /register:
+  /login-logs:
+    get:
+      description: Get all login logs with pagination, filter by status, username,
+        date range
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by status (SUCCESS/FAILED)
+        in: query
+        name: status
+        type: string
+      - description: Filter by username contains
+        in: query
+        name: username
+        type: string
+      - description: Filter from date (YYYY-MM-DD)
+        in: query
+        name: from_date
+        type: string
+      - description: Filter to date (YYYY-MM-DD)
+        in: query
+        name: to_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.PaginatedResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/handlers.LoginLogResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get login logs with pagination and filters
+      tags:
+      - login-logs
+  /login-logs/{id}:
+    get:
+      description: Get login log details by ID
+      parameters:
+      - description: Login Log ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.LoginLogResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get login log by ID
+      tags:
+      - login-logs
+  /register/admin:
     post:
       consumes:
       - application/json
-      description: Register a new user with username and password
+      description: Register a new admin user (Type automatically set to ADMIN)
       parameters:
-      - description: Register credentials
+      - description: Admin register credentials
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.RegisterRequest'
+          $ref: '#/definitions/handlers.RegisterUserRequest'
       produces:
       - application/json
       responses:
@@ -184,7 +333,41 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
-      summary: Register new user
+      summary: Register new admin
+      tags:
+      - auth
+  /register/driver:
+    post:
+      consumes:
+      - application/json
+      description: Register a new driver user (Type automatically set to DRIVER)
+      parameters:
+      - description: Driver register credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Register new driver
       tags:
       - auth
   /role-assignments/roles/{role_id}/users/{user_id}:
@@ -407,23 +590,43 @@ paths:
       - roles
   /users:
     get:
-      description: Get list of all users with their roles and pagination
+      description: Get all users with pagination, filter by type, email contains,
+        username contains
       parameters:
-      - description: Page number
+      - description: 'Page number (default: 1)'
         in: query
         name: page
         type: integer
-      - description: Items per page
+      - description: 'Items per page (default: 10, max: 100)'
         in: query
         name: limit
         type: integer
+      - description: Filter by user type (ADMIN/DRIVER)
+        in: query
+        name: type
+        type: string
+      - description: Filter by email contains
+        in: query
+        name: email
+        type: string
+      - description: Filter by username contains
+        in: query
+        name: username
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/models.PaginatedResponse'
+            allOf:
+            - $ref: '#/definitions/models.PaginatedResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/handlers.UserResponse'
+                  type: array
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -434,7 +637,7 @@ paths:
             $ref: '#/definitions/handlers.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Get all users
+      summary: Get all users with pagination and filters
       tags:
       - users
   /users/{id}:
@@ -507,7 +710,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handlers.RegisterRequest'
+          $ref: '#/definitions/handlers.UpdateUserRequest'
       produces:
       - application/json
       responses:
