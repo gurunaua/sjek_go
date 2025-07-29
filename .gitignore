@@ -1,0 +1,3 @@
+# Exclude logs directory and all log files
+logs/
+*.log
