@@ -208,6 +208,16 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Save token to database
+	ipAddress := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+	if err := middleware.SaveTokenToDB(user.ID.String(), token, ipAddress, userAgent); err != nil {
+		// Log failed login attempt - token save error
+		saveLoginLog(c, user.ID.String(), user.Username, user.Email, models.LoginStatusFailed, "Failed to save token")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save token"})
+		return
+	}
+
 	// Log successful login
 	saveLoginLog(c, user.ID.String(), user.Username, user.Email, models.LoginStatusSuccess, "Login successful")
 

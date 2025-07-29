@@ -7,10 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"sjek/internal/models" // perbaiki import path
+	"sjek/internal/database"
+	"sjek/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -38,6 +40,41 @@ func GenerateToken(userID, username string, roles []string) (string, error) {
 	return token.SignedString(JWTSecret)
 }
 
+// SaveTokenToDB saves token to database
+func SaveTokenToDB(userID, token, ipAddress, userAgent string) error {
+	// Parse userID to UUID
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return err
+	}
+
+	// Create UserToken record
+	userToken := models.UserToken{
+		ID:        uuid.New(),
+		UserID:    userUUID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		IsActive:  true,
+		IPAddress: ipAddress,
+		UserAgent: userAgent,
+	}
+
+	return database.DB.Create(&userToken).Error
+}
+
+// ValidateTokenFromDB validates token exists in database and is active
+func ValidateTokenFromDB(token string) (*models.UserToken, error) {
+	var userToken models.UserToken
+	err := database.DB.Where("token = ? AND is_active = ? AND expires_at > ?", 
+		token, true, time.Now()).First(&userToken).Error
+	
+	if err != nil {
+		return nil, err
+	}
+
+	return &userToken, nil
+}
+
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -55,8 +92,16 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		tokenString := bearerToken[1]
-		claims := &Claims{}
 
+		// Validate token from database first
+		userToken, err := ValidateTokenFromDB(tokenString)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not found or expired"})
+			c.Abort()
+			return
+		}
+
+		claims := &Claims{}
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -76,12 +121,11 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		fmt.Println("Username:", claims.Username)
-		fmt.Println("Roles:", claims.Roles)
-
+		// Set context values
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("roles", claims.Roles)
+		c.Set("token_id", userToken.ID.String())
 		c.Next()
 	}
 }

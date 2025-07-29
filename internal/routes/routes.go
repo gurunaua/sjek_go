@@ -25,14 +25,15 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 	// Protected routes
 	protected := router.Group("/")
 	protected.Use(middleware.AuthMiddleware())
-	protected.Use(middleware.APIAccessMiddleware(db)) // Tambahkan middleware ini
+	protected.Use(middleware.APIAccessMiddleware(db))
 
 	setupUserRoutes(protected)
 	setupRoleRoutes(protected)
 	setupRoleUserMappingRoutes(protected)
 	setupAPIRoutes(protected, db)
 	setupAPIRoleMappingRoutes(protected, db)
-	setupLoginLogRoutes(protected) // Tambahkan ini
+	setupLoginLogRoutes(protected)
+	setupTokenRoutes(protected) // Tambahkan ini
 
 	// Insert API endpoints ke database
 	if err := insertAPIEndpoints(db, router); err != nil {
@@ -134,5 +135,19 @@ func setupLoginLogRoutes(rg *gin.RouterGroup) {
 	{
 		loginLogs.GET("/", handlers.GetLoginLogs)
 		loginLogs.GET("/:id", handlers.GetLoginLog)
+	}
+}
+
+// setupTokenRoutes configures token management routes
+func setupTokenRoutes(rg *gin.RouterGroup) {
+	// Logout route
+	rg.POST("/logout", handlers.Logout)
+	
+	// Token management routes
+	tokens := rg.Group("/tokens")
+	{
+		tokens.GET("/", handlers.GetUserTokens)
+		tokens.DELETE("/:id", handlers.RevokeToken)
+		tokens.POST("/revoke-all", handlers.RevokeAllTokens)
 	}
 }

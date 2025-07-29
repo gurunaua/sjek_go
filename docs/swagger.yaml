@@ -77,6 +77,23 @@ definitions:
         example: operation successful
         type: string
     type: object
+  handlers.TokenResponse:
+    properties:
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      ip_address:
+        type: string
+      is_active:
+        type: boolean
+      user_agent:
+        type: string
+      user_id:
+        type: string
+    type: object
   handlers.UpdateUserRequest:
     properties:
       email:
@@ -302,6 +319,27 @@ paths:
       summary: Get login log by ID
       tags:
       - login-logs
+  /logout:
+    post:
+      description: Logout user by deactivating current token
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout user
+      tags:
+      - auth
   /register/admin:
     post:
       consumes:
@@ -588,6 +626,88 @@ paths:
       summary: Update role
       tags:
       - roles
+  /tokens:
+    get:
+      description: Get all active tokens for current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.TokenResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user active tokens
+      tags:
+      - tokens
+  /tokens/{id}:
+    delete:
+      description: Revoke/deactivate a specific token by ID
+      parameters:
+      - description: Token ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke token
+      tags:
+      - tokens
+  /tokens/revoke-all:
+    post:
+      description: Revoke/deactivate all tokens for current user (logout from all
+        devices)
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Revoke all tokens
+      tags:
+      - tokens
   /users:
     get:
       description: Get all users with pagination, filter by type, email contains,
